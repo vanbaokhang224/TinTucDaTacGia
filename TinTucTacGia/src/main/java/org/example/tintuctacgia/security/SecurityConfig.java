@@ -1,6 +1,7 @@
 package org.example.tintuctacgia.security;
 
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,12 +10,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
+import org.springframework.security.config.http.SessionCreationPolicy;
+
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.example.tintuctacgia.security.JwtFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -30,79 +32,84 @@ public class SecurityConfig {
 
         http
 
-                // Tắt CSRF
+                // TẮT CSRF
                 .csrf(csrf -> csrf.disable())
 
-                // Phân quyền
+                // JWT STATELESS
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
+                // PHÂN QUYỀN
                 .authorizeHttpRequests(auth -> auth
 
-                        // PUBLIC API
+                        // AUTH API
                         .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login",
+                                "/api/auth/**"
+                        ).permitAll()
+
+                        // SWAGGER
+                        .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
 
-                        // DELETE USER
-                        .requestMatchers(
-                                HttpMethod.DELETE,
-                                "/api/auth/delete/**"
-                        ).hasRole("ADMIN")
-
-                        // GET POSTS
+                        // XEM POST
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/posts/**"
                         ).permitAll()
 
-                        // CREATE POST
+                        // TẠO POST
+                        // FIX: Đổi hasAnyAuthority("ADMIN","AUTHOR") → hasAnyRole("ADMIN","AUTHOR")
+                        // vì User.getAuthorities() trả về "ROLE_ADMIN", "ROLE_AUTHOR"
+                        // hasAnyRole tự thêm prefix "ROLE_" khi so sánh
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/posts/**"
-                        ).hasAnyRole("ADMIN", "AUTHOR")
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "AUTHOR"
+                        )
 
                         // UPDATE POST
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/posts/**"
-                        ).hasAnyRole("ADMIN", "AUTHOR")
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "AUTHOR"
+                        )
 
                         // DELETE POST
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/api/posts/**"
-                        ).hasRole("ADMIN")
-
-                        // CREATE COMMENT
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/comments/**"
-                        ).hasAnyRole(
-                                "ADMIN",
-                                "AUTHOR",
-                                "USER"
+                        ).hasRole(
+                                "ADMIN"
                         )
 
-                        // DELETE COMMENT
+                        // COMMENT
                         .requestMatchers(
-                                HttpMethod.DELETE,
                                 "/api/comments/**"
-                        ).hasRole("ADMIN")
+                        ).authenticated()
 
-                        // Các API khác
+                        // API KHÁC
                         .anyRequest()
                         .authenticated()
+                )
+
+                // JWT FILTER
+                .addFilterBefore(
+                        jwtFilter,
+                        UsernamePasswordAuthenticationFilter.class
                 );
-        http.addFilterBefore(
-                jwtFilter,
-                UsernamePasswordAuthenticationFilter.class
-        );
 
         return http.build();
     }
 
-    // Password Encoder
     @Bean
     public PasswordEncoder passwordEncoder() {
 

@@ -26,8 +26,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
-public class JwtFilter
-        extends OncePerRequestFilter {
+public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
@@ -40,51 +39,59 @@ public class JwtFilter
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String authHeader =
-                request.getHeader("Authorization");
+        String path = request.getServletPath();
 
-        if (authHeader == null
-                || !authHeader.startsWith("Bearer ")) {
-
-            filterChain.doFilter(
-                    request,
-                    response
-            );
-
+        // BỎ QUA LOGIN / REGISTER
+        if (path.startsWith("/api/auth/")) {
+            filterChain.doFilter(request, response);
             return;
         }
 
-        String token =
-                authHeader.substring(7);
+        String authHeader = request.getHeader("Authorization");
 
-        String email =
-                jwtService.extractEmail(token);
-
-        User user = userRepository
-                .findByEmail(email)
-                .orElse(null);
-
-        if (user != null) {
-
-            UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(
-                            user,
-                            null,
-                            List.of(
-                                    new SimpleGrantedAuthority(
-                                            "ROLE_" + user.getRole().name()
-                                    )
-                            )
-                    );
-
-            SecurityContextHolder
-                    .getContext()
-                    .setAuthentication(authToken);
+        // KHÔNG CÓ TOKEN
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
         }
 
-        filterChain.doFilter(
-                request,
-                response
-        );
+        try {
+
+            String token = authHeader.substring(7);
+
+            String email = jwtService.extractEmail(token);
+
+            User user = userRepository
+                    .findByEmail(email)
+                    .orElse(null);
+
+            if (user != null) {
+
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(
+                                user,
+                                null,
+                                // FIX: Thêm prefix "ROLE_" để khớp với hasAnyRole() trong SecurityConfig
+                                // Trước: user.getRole().name()        → "AUTHOR"
+                                // Sau:   "ROLE_" + user.getRole().name() → "ROLE_AUTHOR"
+                                List.of(
+                                        new SimpleGrantedAuthority(
+                                                "ROLE_" + user.getRole().name()
+                                        )
+                                )
+                        );
+
+                SecurityContextHolder
+                        .getContext()
+                        .setAuthentication(authToken);
+            }
+
+        } catch (Exception e) {
+
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        filterChain.doFilter(request, response);
     }
 }

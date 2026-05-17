@@ -1,5 +1,6 @@
 package org.example.tintuctacgia.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -27,25 +28,25 @@ public class Post {
 
     private String category;
 
+    // FIX: Xóa @ManyToOne trùng phía dưới, chỉ giữ 1 khai báo duy nhất
     @ManyToOne
     @JoinColumn(name = "user_id")
+    @JsonBackReference
     private User user;
 
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
+    // FIX: Thêm @PrePersist đúng annotation
     @PrePersist
     public void createdAt() {
-
         this.createdAt = LocalDateTime.now();
-
         this.updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     public void updatedAt() {
-
         this.updatedAt = LocalDateTime.now();
     }
 }

@@ -1,5 +1,6 @@
 package org.example.tintuctacgia.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.example.tintuctacgia.enums.Role;
@@ -41,6 +42,9 @@ public class User implements UserDetails {
                 new SimpleGrantedAuthority("ROLE_" + role.name())
         );
     }
+    @OneToMany(mappedBy = "user")
+    @JsonIgnore
+    private List<Post> posts;
 
     @Override
     public String getUsername() {

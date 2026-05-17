@@ -1,107 +1,82 @@
 package org.example.tintuctacgia.service;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
+import org.example.tintuctacgia.dto.RegisterRequest;
 
 import org.example.tintuctacgia.entity.User;
-import org.example.tintuctacgia.exception.DuplicateEmailException;
-import org.example.tintuctacgia.exception.UserNotFoundException;
+
+import org.example.tintuctacgia.enums.Role;
+
 import org.example.tintuctacgia.repository.UserRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
+import org.springframework.stereotype.Service;
+
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class AuthService {
 
     private final UserRepository userRepository;
 
     private final PasswordEncoder passwordEncoder;
 
-    // REGISTER
-    public User register(User user) {
+    public User register(RegisterRequest request) {
 
-        // Check email tồn tại
-        if (userRepository.existsByEmail(user.getEmail())) {
+        User user = new User();
 
-            throw new DuplicateEmailException(
-                    "Email đã được sử dụng: " + user.getEmail()
-            );
-        }
-
-        log.info(
-                "Registering user: {}",
-                user.getEmail()
+        user.setName(
+                request.getName()
         );
 
-        // Encode password
+        user.setEmail(
+                request.getEmail()
+        );
+
         user.setPassword(
-                passwordEncoder.encode(user.getPassword())
+                passwordEncoder.encode(
+                        request.getPassword()
+                )
+        );
+
+        user.setDateOfBirth(
+                request.getDateOfBirth()
+        );
+
+        user.setRole(
+                request.getRole()
         );
 
         return userRepository.save(user);
     }
-
-    // DELETE USER
-    public void deleteUser(Long id) {
-
-        User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new UserNotFoundException(id)
-                );
-
-        log.info(
-                "Deleting user id: {}",
-                id
-        );
-
-        userRepository.delete(user);
-    }
-
-    // UPDATE USER
     public User updateUser(
             Long id,
             User updatedUser
     ) {
 
-        User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new UserNotFoundException(id)
+        User user = userRepository
+                .findById(id)
+                .orElseThrow(
+                        () -> new RuntimeException(
+                                "User not found"
+                        )
                 );
 
-        // Check email duplicate
-        if (!user.getEmail().equals(updatedUser.getEmail())
-                && userRepository.existsByEmail(
+        user.setName(
+                updatedUser.getName()
+        );
+
+        user.setEmail(
                 updatedUser.getEmail()
-        )) {
-
-            throw new DuplicateEmailException(
-                    "Email đã được sử dụng: "
-                            + updatedUser.getEmail()
-            );
-        }
-
-        log.info(
-                "Updating user id: {}",
-                id
         );
 
-        // Update fields
-        user.setName(updatedUser.getName());
-
-        user.setEmail(updatedUser.getEmail());
-
-        user.setDateOfBirth(
-                updatedUser.getDateOfBirth()
-        );
-
-        // Optional update password
-        if (updatedUser.getPassword() != null
-                && !updatedUser.getPassword().isEmpty()) {
+        // Nếu có nhập password mới
+        if (
+                updatedUser.getPassword() != null
+                        &&
+                        !updatedUser.getPassword().isEmpty()
+        ) {
 
             user.setPassword(
                     passwordEncoder.encode(
@@ -111,5 +86,10 @@ public class AuthService {
         }
 
         return userRepository.save(user);
+    }
+
+    public void deleteUser(Long id) {
+
+        userRepository.deleteById(id);
     }
 }

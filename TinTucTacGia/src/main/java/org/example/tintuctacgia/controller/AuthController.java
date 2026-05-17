@@ -1,14 +1,23 @@
 package org.example.tintuctacgia.controller;
 
+import jakarta.validation.Valid;
+
 import lombok.RequiredArgsConstructor;
+
 import org.example.tintuctacgia.dto.LoginRequest;
+import org.example.tintuctacgia.dto.RegisterRequest;
+
 import org.example.tintuctacgia.entity.User;
+
 import org.example.tintuctacgia.repository.UserRepository;
+
 import org.example.tintuctacgia.service.AuthService;
 import org.example.tintuctacgia.service.JwtService;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,38 +25,50 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired
-    private JwtService jwtService;
+    private final JwtService jwtService;
 
-    @Autowired
-    private AuthService authService;
+    private final AuthService authService;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody User user) {
-        return ResponseEntity.ok(authService.register(user));
+    public ResponseEntity<?> register(
+            @Valid @RequestBody RegisterRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                authService.register(request)
+        );
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(
+            @RequestBody LoginRequest request
+    ) {
 
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository
+                .findByEmail(request.getEmail())
                 .orElse(null);
 
         if (user == null) {
-            return ResponseEntity.badRequest().body("Email not found");
+
+            return ResponseEntity
+                    .badRequest()
+                    .body("Email not found");
         }
 
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                user.getPassword()
-        )) {
-            return ResponseEntity.badRequest().body("Wrong password");
+        if (
+                !passwordEncoder.matches(
+                        request.getPassword(),
+                        user.getPassword()
+                )
+        ) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body("Wrong password");
         }
 
         String token =
@@ -57,6 +78,7 @@ public class AuthController {
 
         return ResponseEntity.ok(token);
     }
+
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateUser(
             @PathVariable Long id,
@@ -67,9 +89,16 @@ public class AuthController {
                 authService.updateUser(id, user)
         );
     }
+
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<?> deleteUser(
+            @PathVariable Long id
+    ) {
+
         authService.deleteUser(id);
-        return ResponseEntity.ok("Xóa thành công");
+
+        return ResponseEntity.ok(
+                "Xóa thành công"
+        );
     }
 }
