@@ -21,65 +21,89 @@ public class PostController {
 
     private final PostService postService;
 
-    // CREATE
-    // Chỉ ADMIN hoặc AUTHOR mới được tạo bài
+    // CREATE - chỉ ADMIN hoặc AUTHOR
     @PostMapping
     public ResponseEntity<?> createPost(
             @RequestBody Post post,
             @AuthenticationPrincipal User currentUser
     ) {
-        // Nếu là USER thường → chặn
         if (currentUser.getRole() == Role.USER) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body(Map.of(
-                            "message", "Bạn không có quyền truy cập vào chỗ này. Chỉ AUTHOR hoặc ADMIN mới được đăng bài!"
-                    ));
+                    .body(Map.of("message",
+                            "Bạn không có quyền để vào khu vực này. Chỉ AUTHOR hoặc ADMIN mới được đăng bài!"));
         }
-
-        return ResponseEntity.ok(
-                postService.createPost(post)
-        );
+        return ResponseEntity.ok(postService.createPost(post));
     }
 
-    // GET ALL - ai cũng xem được
+    // GET ALL - có phân trang, ai cũng xem được
+    // Mặc định: trang 0, mỗi trang 10 bài, sắp xếp mới nhất trước
     @GetMapping
-    public ResponseEntity<?> getAllPosts() {
-        return ResponseEntity.ok(
-                postService.getAllPosts()
-        );
+    public ResponseEntity<?> getAllPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.getAllPosts(page, size));
     }
 
-    // UPDATE
-    // AUTHOR chỉ sửa bài của mình, ADMIN sửa tất cả, USER bị chặn
+    // GET BY ID - ai cũng xem được
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPostById(
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(postService.getPostById(id));
+    }
+
+    // SEARCH - tìm theo title
+    // VD: /api/posts/search?keyword=công nghệ
+    @GetMapping("/search")
+    public ResponseEntity<?> searchPosts(
+            @RequestParam String keyword
+    ) {
+        return ResponseEntity.ok(postService.searchPosts(keyword));
+    }
+
+    // GET BY CATEGORY - lọc theo danh mục
+    // VD: /api/posts/category/Công nghệ
+    @GetMapping("/category/{category}")
+    public ResponseEntity<?> getPostsByCategory(
+            @PathVariable String category
+    ) {
+        return ResponseEntity.ok(postService.getPostsByCategory(category));
+    }
+
+    // GET BY AUTHOR - xem bài của 1 tác giả
+    // VD: /api/posts/author/1
+    @GetMapping("/author/{userId}")
+    public ResponseEntity<?> getPostsByAuthor(
+            @PathVariable Long userId
+    ) {
+        return ResponseEntity.ok(postService.getPostsByAuthor(userId));
+    }
+
+    // UPDATE - AUTHOR chỉ sửa bài của mình, ADMIN sửa tất cả
     @PutMapping("/{id}")
     public ResponseEntity<?> updatePost(
             @PathVariable Long id,
             @RequestBody Post post,
             @AuthenticationPrincipal User currentUser
     ) {
-        // Nếu là USER thường → chặn
         if (currentUser.getRole() == Role.USER) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body(Map.of(
-                            "message", "Bạn không có quyền truy cập vào chỗ này. Chỉ AUTHOR hoặc ADMIN mới được sửa bài!"
-                    ));
+                    .body(Map.of("message",
+                            "Bạn không có quyền để vào khu vực này. Chỉ AUTHOR hoặc ADMIN mới được sửa bài!"));
         }
-
         try {
-            return ResponseEntity.ok(
-                    postService.updatePost(id, post)
-            );
+            return ResponseEntity.ok(postService.updatePost(id, post));
         } catch (RuntimeException e) {
-            // AUTHOR cố sửa bài của người khác
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    // DELETE - chỉ ADMIN mới được xóa
+    // DELETE - chỉ ADMIN
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletePost(
             @PathVariable Long id,
@@ -88,11 +112,9 @@ public class PostController {
         if (currentUser.getRole() != Role.ADMIN) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body(Map.of(
-                            "message", "Bạn không có quyền truy cập vào chỗ này. Chỉ ADMIN mới được xóa bài!"
-                    ));
+                    .body(Map.of("message",
+                            "Bạn không có quyền để vào khu vực này. Chỉ ADMIN mới được xóa bài!"));
         }
-
         try {
             postService.deletePost(id);
             return ResponseEntity.ok(

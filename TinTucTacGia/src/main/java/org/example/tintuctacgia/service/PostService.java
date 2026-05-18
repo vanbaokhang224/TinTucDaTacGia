@@ -8,6 +8,10 @@ import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.exception.PostNotFoundException;
 import org.example.tintuctacgia.repository.PostRepository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +23,7 @@ public class PostService {
 
     private final PostRepository postRepository;
 
-    // Lấy user đang đăng nhập từ SecurityContext
+    // Lấy user đang đăng nhập
     private User getCurrentUser() {
         return (User) SecurityContextHolder
                 .getContext()
@@ -33,9 +37,14 @@ public class PostService {
         return postRepository.save(post);
     }
 
-    // GET ALL POSTS
-    public List<Post> getAllPosts() {
-        return postRepository.findAll();
+    // GET ALL POSTS (có phân trang)
+    // page: số trang (bắt đầu từ 0), size: số bài mỗi trang
+    public Page<Post> getAllPosts(int page, int size) {
+        Pageable pageable = PageRequest.of(
+                page, size,
+                Sort.by("createdAt").descending()
+        );
+        return postRepository.findAll(pageable);
     }
 
     // GET POST BY ID
@@ -47,19 +56,16 @@ public class PostService {
     // UPDATE POST
     public Post updatePost(Long id, Post updatedPost) {
 
-        // FIX: Dùng PostNotFoundException thay vì RuntimeException
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
 
         User currentUser = getCurrentUser();
 
-        // Kiểm tra quyền: chỉ ADMIN hoặc chính tác giả mới được sửa
         if (currentUser.getRole() != Role.ADMIN
                 && !post.getUser().getId().equals(currentUser.getId())) {
             throw new RuntimeException("Bạn không có quyền sửa bài này");
         }
 
-        // FIX: Update đủ 3 field (trước chỉ có title và content)
         post.setTitle(updatedPost.getTitle());
         post.setContent(updatedPost.getContent());
         post.setCategory(updatedPost.getCategory());
@@ -75,12 +81,27 @@ public class PostService {
 
         User currentUser = getCurrentUser();
 
-        // Chỉ ADMIN hoặc chính tác giả mới được xóa
         if (currentUser.getRole() != Role.ADMIN
                 && !post.getUser().getId().equals(currentUser.getId())) {
             throw new RuntimeException("Bạn không có quyền xóa bài này");
         }
 
         postRepository.delete(post);
+    }
+
+    // GET POSTS BY AUTHOR
+    public List<Post> getPostsByAuthor(Long userId) {
+        return postRepository.findByUserId(userId);
+    }
+
+    // GET POSTS BY CATEGORY
+    public List<Post> getPostsByCategory(String category) {
+        return postRepository.findByCategory(category);
+    }
+
+    // SEARCH POSTS BY TITLE
+    public List<Post> searchPosts(String keyword) {
+        return postRepository
+                .findByTitleContainingIgnoreCase(keyword);
     }
 }

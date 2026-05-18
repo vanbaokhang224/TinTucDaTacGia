@@ -31,15 +31,15 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // REGISTER
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @Valid @RequestBody RegisterRequest request
     ) {
-        return ResponseEntity.ok(
-                authService.register(request)
-        );
+        return ResponseEntity.ok(authService.register(request));
     }
 
+    // LOGIN
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @RequestBody LoginRequest request
@@ -55,7 +55,7 @@ public class AuthController {
                     .body("Email không tồn tại");
         }
 
-        // Bước 2: Kiểm tra name có khớp không
+        // Bước 2: Kiểm tra name
         if (!user.getName().equalsIgnoreCase(request.getName())) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
@@ -72,7 +72,7 @@ public class AuthController {
                     .body("Sai mật khẩu");
         }
 
-        // Tất cả đều khớp → cấp token kèm thông tin
+        // Tất cả đúng → cấp token
         String token = jwtService.generateToken(user.getEmail());
 
         Map<String, Object> response = new HashMap<>();
@@ -85,7 +85,52 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Chỉ ADMIN hoặc chính user đó mới được update
+    // REFRESH TOKEN - lấy token mới khi sắp hết hạn
+    @PostMapping("/refresh-token")
+    public ResponseEntity<?> refreshToken(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        String newToken = jwtService.generateToken(currentUser.getEmail());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Token đã được làm mới");
+        response.put("token", newToken);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // GET ALL USERS - chỉ ADMIN
+    @GetMapping("/users")
+    public ResponseEntity<?> getAllUsers(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        if (currentUser.getRole() != Role.ADMIN) {
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Chỉ ADMIN mới xem được danh sách user"));
+        }
+        return ResponseEntity.ok(authService.getAllUsers());
+    }
+
+    // GET USER BY ID - chỉ ADMIN hoặc chính user đó
+    @GetMapping("/users/{id}")
+    public ResponseEntity<?> getUserById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        boolean isAdmin = currentUser.getRole() == Role.ADMIN;
+        boolean isSelf = currentUser.getId().equals(id);
+
+        if (!isAdmin && !isSelf) {
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Bạn không có quyền xem thông tin user này"));
+        }
+
+        return ResponseEntity.ok(authService.getUserById(id));
+    }
+
+    // UPDATE USER - chỉ ADMIN hoặc chính user đó
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateUser(
             @PathVariable Long id,
@@ -98,15 +143,13 @@ public class AuthController {
         if (!isAdmin && !isSelf) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body("Bạn không có quyền cập nhật user này");
+                    .body(Map.of("message", "Bạn không có quyền cập nhật user này"));
         }
 
-        return ResponseEntity.ok(
-                authService.updateUser(id, updatedUser)
-        );
+        return ResponseEntity.ok(authService.updateUser(id, updatedUser));
     }
 
-    // Chỉ ADMIN mới được xóa user
+    // DELETE USER - chỉ ADMIN
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteUser(
             @PathVariable Long id,
@@ -115,10 +158,10 @@ public class AuthController {
         if (currentUser.getRole() != Role.ADMIN) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body("Chỉ ADMIN mới có quyền xóa user");
+                    .body(Map.of("message", "Chỉ ADMIN mới có quyền xóa user"));
         }
 
         authService.deleteUser(id);
-        return ResponseEntity.ok("Xóa thành công");
+        return ResponseEntity.ok(Map.of("message", "Xóa user thành công"));
     }
 }

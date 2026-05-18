@@ -11,6 +11,8 @@ import org.example.tintuctacgia.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -18,9 +20,8 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // REGISTER
     public User register(RegisterRequest request) {
-
-        // Kiểm tra email trùng trước khi tạo user
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateEmailException(
                     "Email '" + request.getEmail() + "' đã được sử dụng"
@@ -37,16 +38,29 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    public User updateUser(Long id, User updatedUser) {
+    // GET ALL USERS (chỉ ADMIN)
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
 
-        // Dùng UserNotFoundException thay vì RuntimeException
+    // GET USER BY ID
+    public User getUserById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+    }
+
+    // UPDATE USER
+    public User updateUser(Long id, User updatedUser) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
 
         user.setName(updatedUser.getName());
         user.setEmail(updatedUser.getEmail());
 
-        // Chỉ update password nếu có nhập mới
+        if (updatedUser.getDateOfBirth() != null) {
+            user.setDateOfBirth(updatedUser.getDateOfBirth());
+        }
+
         if (updatedUser.getPassword() != null
                 && !updatedUser.getPassword().isEmpty()) {
             user.setPassword(
@@ -57,13 +71,11 @@ public class AuthService {
         return userRepository.save(user);
     }
 
+    // DELETE USER
     public void deleteUser(Long id) {
-
-        // Kiểm tra tồn tại trước khi xóa
         if (!userRepository.existsById(id)) {
             throw new UserNotFoundException(id);
         }
-
         userRepository.deleteById(id);
     }
 }
