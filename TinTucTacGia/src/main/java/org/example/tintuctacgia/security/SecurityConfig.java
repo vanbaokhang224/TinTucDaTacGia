@@ -31,23 +31,16 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
 
     @Bean
-    public SecurityFilterChain filterChain(
-            HttpSecurity http
-    ) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
 
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // Custom message khi bị chặn
                 .exceptionHandling(ex -> ex
-
-                        // Chưa đăng nhập → 401
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(401);
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
@@ -55,8 +48,6 @@ public class SecurityConfig {
                             body.put("message", "Bạn chưa đăng nhập. Vui lòng đăng nhập để tiếp tục!");
                             new ObjectMapper().writeValue(response.getOutputStream(), body);
                         })
-
-                        // Đã đăng nhập nhưng không đủ quyền → 403
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setStatus(403);
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
@@ -68,59 +59,31 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // FIX: Chỉ permitAll đúng 2 route login và register
-                        // Không dùng /api/auth/** vì sẽ bỏ qua cả update/delete
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/register",
-                                "/api/auth/login"
-                        ).permitAll()
+                        // ===== AUTH ROUTES =====
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/auth/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/auth/**").authenticated()
 
-                        // SWAGGER
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**"
-                        ).permitAll()
+                        // ===== SWAGGER =====
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
-                        // Update/Delete user → phải đăng nhập
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/auth/update/**"
-                        ).authenticated()
+                        // ===== POST ROUTES - GET không cần token =====
+                        .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/by-category/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/by-author/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.DELETE,
-                                "/api/auth/delete/**"
-                        ).authenticated()
+                        // ===== POST ROUTES - cần token =====
+                        .requestMatchers(HttpMethod.POST, "/api/posts/**").hasAnyRole("ADMIN", "AUTHOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasAnyRole("ADMIN", "AUTHOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("ADMIN")
 
-                        // XEM POST - ai cũng được
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/posts/**"
-                        ).permitAll()
-
-                        // TẠO POST - chỉ ADMIN, AUTHOR
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/posts/**"
-                        ).hasAnyRole("ADMIN", "AUTHOR")
-
-                        // SỬA POST - chỉ ADMIN, AUTHOR
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/posts/**"
-                        ).hasAnyRole("ADMIN", "AUTHOR")
-
-                        // XÓA POST - chỉ ADMIN
-                        .requestMatchers(
-                                HttpMethod.DELETE,
-                                "/api/posts/**"
-                        ).hasRole("ADMIN")
-
-                        // COMMENT - phải đăng nhập
-                        .requestMatchers(
-                                "/api/comments/**"
-                        ).authenticated()
+                        // ===== COMMENT ROUTES =====
+                        .requestMatchers("/api/comments/**").authenticated()
 
                         .anyRequest().authenticated()
                 )

@@ -1,8 +1,9 @@
 package org.example.tintuctacgia.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.example.tintuctacgia.entity.Post;
+import org.example.tintuctacgia.dto.PostRequest;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.service.PostService;
@@ -24,20 +25,20 @@ public class PostController {
     // CREATE - chỉ ADMIN hoặc AUTHOR
     @PostMapping
     public ResponseEntity<?> createPost(
-            @RequestBody Post post,
+            @Valid @RequestBody PostRequest request,
             @AuthenticationPrincipal User currentUser
     ) {
         if (currentUser.getRole() == Role.USER) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message",
-                            "Bạn không có quyền để vào khu vực này. Chỉ AUTHOR hoặc ADMIN mới được đăng bài!"));
+                            "Bạn không có quyền đăng bài. Chỉ AUTHOR hoặc ADMIN mới được đăng!"));
         }
-        return ResponseEntity.ok(postService.createPost(post));
+        return ResponseEntity.ok(postService.createPost(request));
     }
 
-    // GET ALL - có phân trang, ai cũng xem được
-    // Mặc định: trang 0, mỗi trang 10 bài, sắp xếp mới nhất trước
+    // GET ALL - phân trang, ai cũng xem được
+    // VD: GET /api/posts?page=0&size=10
     @GetMapping
     public ResponseEntity<?> getAllPosts(
             @RequestParam(defaultValue = "0") int page,
@@ -46,16 +47,8 @@ public class PostController {
         return ResponseEntity.ok(postService.getAllPosts(page, size));
     }
 
-    // GET BY ID - ai cũng xem được
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getPostById(
-            @PathVariable Long id
-    ) {
-        return ResponseEntity.ok(postService.getPostById(id));
-    }
-
     // SEARCH - tìm theo title
-    // VD: /api/posts/search?keyword=công nghệ
+    // VD: GET /api/posts/search?keyword=công nghệ
     @GetMapping("/search")
     public ResponseEntity<?> searchPosts(
             @RequestParam String keyword
@@ -63,39 +56,54 @@ public class PostController {
         return ResponseEntity.ok(postService.searchPosts(keyword));
     }
 
-    // GET BY CATEGORY - lọc theo danh mục
-    // VD: /api/posts/category/Công nghệ
-    @GetMapping("/category/{category}")
+    // GET BY CATEGORY
+    // VD: GET /api/posts/by-category/Công nghệ
+    @GetMapping("/by-category/{category}")
     public ResponseEntity<?> getPostsByCategory(
             @PathVariable String category
     ) {
         return ResponseEntity.ok(postService.getPostsByCategory(category));
     }
 
-    // GET BY AUTHOR - xem bài của 1 tác giả
-    // VD: /api/posts/author/1
-    @GetMapping("/author/{userId}")
+    // GET BY AUTHOR
+    // VD: GET /api/posts/by-author/1
+    @GetMapping("/by-author/{userId}")
     public ResponseEntity<?> getPostsByAuthor(
             @PathVariable Long userId
     ) {
         return ResponseEntity.ok(postService.getPostsByAuthor(userId));
     }
 
+    // GET BY ID
+    // VD: GET /api/posts/1
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPostById(
+            @PathVariable Long id
+    ) {
+        try {
+            return ResponseEntity.ok(postService.getPostById(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
     // UPDATE - AUTHOR chỉ sửa bài của mình, ADMIN sửa tất cả
     @PutMapping("/{id}")
     public ResponseEntity<?> updatePost(
             @PathVariable Long id,
-            @RequestBody Post post,
+            @Valid @RequestBody PostRequest request,
             @AuthenticationPrincipal User currentUser
     ) {
         if (currentUser.getRole() == Role.USER) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message",
-                            "Bạn không có quyền để vào khu vực này. Chỉ AUTHOR hoặc ADMIN mới được sửa bài!"));
+                            "Bạn không có quyền sửa bài. Chỉ AUTHOR hoặc ADMIN mới được sửa!"));
         }
         try {
-            return ResponseEntity.ok(postService.updatePost(id, post));
+            return ResponseEntity.ok(postService.updatePost(id, request));
         } catch (RuntimeException e) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
@@ -113,7 +121,7 @@ public class PostController {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message",
-                            "Bạn không có quyền để vào khu vực này. Chỉ ADMIN mới được xóa bài!"));
+                            "Bạn không có quyền xóa bài. Chỉ ADMIN mới được xóa!"));
         }
         try {
             postService.deletePost(id);

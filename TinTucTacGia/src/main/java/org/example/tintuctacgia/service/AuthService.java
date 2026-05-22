@@ -3,15 +3,18 @@ package org.example.tintuctacgia.service;
 import lombok.RequiredArgsConstructor;
 
 import org.example.tintuctacgia.dto.RegisterRequest;
+import org.example.tintuctacgia.dto.UserResponse;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.exception.DuplicateEmailException;
 import org.example.tintuctacgia.exception.UserNotFoundException;
+import org.example.tintuctacgia.mapper.UserMapper;
 import org.example.tintuctacgia.repository.UserRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +24,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     // REGISTER
-    public User register(RegisterRequest request) {
+    public UserResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateEmailException(
                     "Email '" + request.getEmail() + "' đã được sử dụng"
@@ -35,22 +38,26 @@ public class AuthService {
         user.setDateOfBirth(request.getDateOfBirth());
         user.setRole(request.getRole());
 
-        return userRepository.save(user);
+        return UserMapper.toResponse(userRepository.save(user));
     }
 
     // GET ALL USERS (chỉ ADMIN)
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(UserMapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     // GET USER BY ID
-    public User getUserById(Long id) {
-        return userRepository.findById(id)
+    public UserResponse getUserById(Long id) {
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
+        return UserMapper.toResponse(user);
     }
 
     // UPDATE USER
-    public User updateUser(Long id, User updatedUser) {
+    public UserResponse updateUser(Long id, User updatedUser) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
 
@@ -68,7 +75,7 @@ public class AuthService {
             );
         }
 
-        return userRepository.save(user);
+        return UserMapper.toResponse(userRepository.save(user));
     }
 
     // DELETE USER

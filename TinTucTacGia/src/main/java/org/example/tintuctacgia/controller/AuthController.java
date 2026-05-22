@@ -1,16 +1,17 @@
 package org.example.tintuctacgia.controller;
 
 import jakarta.validation.Valid;
-
 import lombok.RequiredArgsConstructor;
 
 import org.example.tintuctacgia.dto.LoginRequest;
 import org.example.tintuctacgia.dto.RegisterRequest;
+import org.example.tintuctacgia.dto.UserResponse;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.repository.UserRepository;
 import org.example.tintuctacgia.service.AuthService;
 import org.example.tintuctacgia.service.JwtService;
+import org.example.tintuctacgia.service.TokenBlacklistService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TokenBlacklistService tokenBlacklistService;
 
     // REGISTER
     @PostMapping("/register")
@@ -44,7 +46,6 @@ public class AuthController {
     public ResponseEntity<?> login(
             @RequestBody LoginRequest request
     ) {
-        // Bước 1: Tìm user theo email
         User user = userRepository
                 .findByEmail(request.getEmail())
                 .orElse(null);
@@ -52,27 +53,21 @@ public class AuthController {
         if (user == null) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body("Email không tồn tại");
+                    .body(Map.of("message", "Email không tồn tại"));
         }
 
-        // Bước 2: Kiểm tra name
         if (!user.getName().equalsIgnoreCase(request.getName())) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body("Tên không khớp với tài khoản này");
+                    .body(Map.of("message", "Tên không khớp với tài khoản này"));
         }
 
-        // Bước 3: Kiểm tra password
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                user.getPassword())
-        ) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body("Sai mật khẩu");
+                    .body(Map.of("message", "Sai mật khẩu"));
         }
 
-        // Tất cả đúng → cấp token
         String token = jwtService.generateToken(user.getEmail());
 
         Map<String, Object> response = new HashMap<>();
@@ -85,18 +80,30 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // REFRESH TOKEN - lấy token mới khi sắp hết hạn
+    // LOGOUT - blacklist token hiện tại
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            tokenBlacklistService.blacklist(token);
+        }
+        return ResponseEntity.ok(
+                Map.of("message", "Đăng xuất thành công")
+        );
+    }
+
+    // REFRESH TOKEN
     @PostMapping("/refresh-token")
     public ResponseEntity<?> refreshToken(
             @AuthenticationPrincipal User currentUser
     ) {
         String newToken = jwtService.generateToken(currentUser.getEmail());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Token đã được làm mới");
-        response.put("token", newToken);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "message", "Token đã được làm mới",
+                "token", newToken
+        ));
     }
 
     // GET ALL USERS - chỉ ADMIN
@@ -112,7 +119,7 @@ public class AuthController {
         return ResponseEntity.ok(authService.getAllUsers());
     }
 
-    // GET USER BY ID - chỉ ADMIN hoặc chính user đó
+    // GET USER BY ID - ADMIN hoặc chính user đó
     @GetMapping("/users/{id}")
     public ResponseEntity<?> getUserById(
             @PathVariable Long id,
@@ -126,11 +133,10 @@ public class AuthController {
                     .status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "Bạn không có quyền xem thông tin user này"));
         }
-
         return ResponseEntity.ok(authService.getUserById(id));
     }
 
-    // UPDATE USER - chỉ ADMIN hoặc chính user đó
+    // UPDATE USER - ADMIN hoặc chính user đó
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateUser(
             @PathVariable Long id,
@@ -145,7 +151,6 @@ public class AuthController {
                     .status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "Bạn không có quyền cập nhật user này"));
         }
-
         return ResponseEntity.ok(authService.updateUser(id, updatedUser));
     }
 
@@ -160,7 +165,6 @@ public class AuthController {
                     .status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "Chỉ ADMIN mới có quyền xóa user"));
         }
-
         authService.deleteUser(id);
         return ResponseEntity.ok(Map.of("message", "Xóa user thành công"));
     }

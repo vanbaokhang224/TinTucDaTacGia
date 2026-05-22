@@ -1,12 +1,10 @@
 package org.example.tintuctacgia.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.example.tintuctacgia.entity.Comment;
-import org.example.tintuctacgia.entity.Post;
+import org.example.tintuctacgia.dto.CommentRequest;
 import org.example.tintuctacgia.entity.User;
-import org.example.tintuctacgia.repository.PostRepository;
-import org.example.tintuctacgia.repository.UserRepository;
 import org.example.tintuctacgia.service.CommentService;
 
 import org.springframework.http.HttpStatus;
@@ -14,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
 import java.util.Map;
 
 @RestController
@@ -23,29 +20,16 @@ import java.util.Map;
 public class CommentController {
 
     private final CommentService commentService;
-    private final UserRepository userRepository;
-    private final PostRepository postRepository;
 
     // CREATE COMMENT
     @PostMapping("/{postId}")
     public ResponseEntity<?> createComment(
             @PathVariable Long postId,
-            @RequestBody Comment comment,
-            Principal principal
+            @Valid @RequestBody CommentRequest request,
+            @AuthenticationPrincipal User currentUser
     ) {
-        User user = userRepository
-                .findByEmail(principal.getName())
-                .orElseThrow();
-
-        Post post = postRepository
-                .findById(postId)
-                .orElseThrow();
-
-        comment.setUser(user);
-        comment.setPost(post);
-
         return ResponseEntity.ok(
-                commentService.createComment(comment)
+                commentService.createComment(postId, request, currentUser)
         );
     }
 
@@ -67,17 +51,16 @@ public class CommentController {
         );
     }
 
-    // UPDATE COMMENT
-    // Chỉ chủ comment mới được sửa
+    // UPDATE COMMENT - chỉ chủ comment mới được sửa
     @PutMapping("/{id}")
     public ResponseEntity<?> updateComment(
             @PathVariable Long id,
-            @RequestBody Comment comment,
+            @Valid @RequestBody CommentRequest request,
             @AuthenticationPrincipal User currentUser
     ) {
         try {
             return ResponseEntity.ok(
-                    commentService.updateComment(id, comment, currentUser)
+                    commentService.updateComment(id, request, currentUser)
             );
         } catch (RuntimeException e) {
             return ResponseEntity
@@ -87,7 +70,7 @@ public class CommentController {
     }
 
     // DELETE COMMENT
-    // Chỉ ADMIN hoặc chủ comment mới xóa được
+    // ADMIN xóa tất cả, USER xóa của mình, AUTHOR không được xóa
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteComment(
             @PathVariable Long id,

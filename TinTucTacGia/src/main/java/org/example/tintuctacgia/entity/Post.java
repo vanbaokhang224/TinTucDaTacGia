@@ -28,8 +28,8 @@ public class Post {
 
     private String category;
 
-    // Xóa @ManyToOne trùng phía dưới, chỉ giữ 1 khai báo duy nhất
-    @ManyToOne
+
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
     @JsonBackReference
     private User user;
@@ -38,7 +38,6 @@ public class Post {
 
     private LocalDateTime updatedAt;
 
-    // Thêm @PrePersist đúng annotation
     @PrePersist
     public void createdAt() {
         this.createdAt = LocalDateTime.now();
