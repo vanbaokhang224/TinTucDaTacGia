@@ -22,19 +22,18 @@ public class Comment {
 
     private LocalDateTime createdAt;
 
-    // COMMENT thuộc USER
-    @ManyToOne
+    //Thêm FetchType.EAGER để tránh lazy loading null
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
     private User user;
 
-    // COMMENT thuộc POST
-    @ManyToOne
+    //Thêm FetchType.EAGER để tránh lazy loading null
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "post_id")
     private Post post;
 
     @PrePersist
     public void createdAt() {
-
         this.createdAt = LocalDateTime.now();
     }
 }

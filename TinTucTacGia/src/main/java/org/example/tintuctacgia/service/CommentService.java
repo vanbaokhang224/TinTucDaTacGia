@@ -11,6 +11,7 @@ import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.exception.CommentNotFoundException;
 import org.example.tintuctacgia.exception.PostNotFoundException;
+import org.example.tintuctacgia.exception.UnauthorizedException;
 import org.example.tintuctacgia.mapper.CommentMapper;
 import org.example.tintuctacgia.repository.CommentRepository;
 import org.example.tintuctacgia.repository.PostRepository;
@@ -44,9 +45,7 @@ public class CommentService {
         comment.setUser(currentUser);
         comment.setPost(post);
 
-        log.info("User {} creating comment on post {}",
-                currentUser.getEmail(), postId);
-
+        log.info("User {} creating comment on post {}", currentUser.getEmail(), postId);
         return CommentMapper.toResponse(commentRepository.save(comment));
     }
 
@@ -76,10 +75,9 @@ public class CommentService {
         Comment comment = commentRepository.findById(id)
                 .orElseThrow(() -> new CommentNotFoundException(id));
 
+        // FIX: Dùng UnauthorizedException thay RuntimeException
         if (!comment.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException(
-                    "Bạn không có quyền chỉnh sửa comment này"
-            );
+            throw new UnauthorizedException("Bạn không có quyền chỉnh sửa comment này");
         }
 
         comment.setContent(request.getContent());
@@ -92,22 +90,19 @@ public class CommentService {
     // ADMIN xóa tất cả, USER xóa của mình, AUTHOR không được xóa
     @Transactional
     public void deleteComment(Long id, User currentUser) {
-
         Comment comment = commentRepository.findById(id)
                 .orElseThrow(() -> new CommentNotFoundException(id));
 
+        // Dùng UnauthorizedException thay RuntimeException
         if (currentUser.getRole() == Role.AUTHOR) {
-            throw new RuntimeException("AUTHOR không có quyền xóa comment");
+            throw new UnauthorizedException("AUTHOR không có quyền xóa comment");
         }
 
         boolean isAdmin = currentUser.getRole() == Role.ADMIN;
-        boolean isOwner = comment.getUser().getId()
-                .equals(currentUser.getId());
+        boolean isOwner = comment.getUser().getId().equals(currentUser.getId());
 
         if (!isAdmin && !isOwner) {
-            throw new RuntimeException(
-                    "Bạn không có quyền xóa comment này"
-            );
+            throw new UnauthorizedException("Bạn không có quyền xóa comment này");
         }
 
         log.info("User {} deleting comment {}", currentUser.getEmail(), id);

@@ -2,10 +2,12 @@ package org.example.tintuctacgia.service;
 
 import lombok.RequiredArgsConstructor;
 
+import org.example.tintuctacgia.dto.LoginRequest;
 import org.example.tintuctacgia.dto.RegisterRequest;
 import org.example.tintuctacgia.dto.UserResponse;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.exception.DuplicateEmailException;
+import org.example.tintuctacgia.exception.UnauthorizedException;
 import org.example.tintuctacgia.exception.UserNotFoundException;
 import org.example.tintuctacgia.mapper.UserMapper;
 import org.example.tintuctacgia.repository.UserRepository;
@@ -30,18 +32,33 @@ public class AuthService {
                     "Email '" + request.getEmail() + "' đã được sử dụng"
             );
         }
-
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setDateOfBirth(request.getDateOfBirth());
         user.setRole(request.getRole());
-
         return UserMapper.toResponse(userRepository.save(user));
     }
 
-    // GET ALL USERS (chỉ ADMIN)
+    // FIX: Chuyển login logic vào Service thay vì để trong Controller
+    public User login(LoginRequest request) {
+        User user = userRepository
+                .findByEmail(request.getEmail())
+                .orElseThrow(() -> new UnauthorizedException("Email không tồn tại"));
+
+        if (!user.getName().equalsIgnoreCase(request.getName())) {
+            throw new UnauthorizedException("Tên không khớp với tài khoản này");
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new UnauthorizedException("Sai mật khẩu");
+        }
+
+        return user;
+    }
+
+    // GET ALL USERS
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll()
                 .stream()
@@ -70,9 +87,7 @@ public class AuthService {
 
         if (updatedUser.getPassword() != null
                 && !updatedUser.getPassword().isEmpty()) {
-            user.setPassword(
-                    passwordEncoder.encode(updatedUser.getPassword())
-            );
+            user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
         }
 
         return UserMapper.toResponse(userRepository.save(user));

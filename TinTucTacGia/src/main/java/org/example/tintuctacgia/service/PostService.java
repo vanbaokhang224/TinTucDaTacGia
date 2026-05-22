@@ -8,6 +8,7 @@ import org.example.tintuctacgia.entity.Post;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.exception.PostNotFoundException;
+import org.example.tintuctacgia.exception.UnauthorizedException;
 import org.example.tintuctacgia.mapper.PostMapper;
 import org.example.tintuctacgia.repository.PostRepository;
 
@@ -27,7 +28,6 @@ public class PostService {
 
     private final PostRepository postRepository;
 
-    // Lấy user đang đăng nhập
     private User getCurrentUser() {
         return (User) SecurityContextHolder
                 .getContext()
@@ -38,13 +38,11 @@ public class PostService {
     // CREATE POST
     public PostResponse createPost(PostRequest request) {
         User currentUser = getCurrentUser();
-
         Post post = new Post();
         post.setTitle(request.getTitle());
         post.setContent(request.getContent());
         post.setCategory(request.getCategory());
         post.setUser(currentUser);
-
         return PostMapper.toResponse(postRepository.save(post));
     }
 
@@ -97,9 +95,10 @@ public class PostService {
 
         User currentUser = getCurrentUser();
 
+        // FIX: Dùng UnauthorizedException thay RuntimeException
         if (currentUser.getRole() != Role.ADMIN
                 && !post.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Bạn không có quyền sửa bài này");
+            throw new UnauthorizedException("Bạn không có quyền sửa bài này");
         }
 
         post.setTitle(request.getTitle());
@@ -116,9 +115,10 @@ public class PostService {
 
         User currentUser = getCurrentUser();
 
+        // FIX: Dùng UnauthorizedException thay RuntimeException
         if (currentUser.getRole() != Role.ADMIN
                 && !post.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Bạn không có quyền xóa bài này");
+            throw new UnauthorizedException("Bạn không có quyền xóa bài này");
         }
 
         postRepository.delete(post);

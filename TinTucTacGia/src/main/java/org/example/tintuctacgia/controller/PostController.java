@@ -38,7 +38,6 @@ public class PostController {
     }
 
     // GET ALL - phân trang, ai cũng xem được
-    // VD: GET /api/posts?page=0&size=10
     @GetMapping
     public ResponseEntity<?> getAllPosts(
             @RequestParam(defaultValue = "0") int page,
@@ -47,8 +46,7 @@ public class PostController {
         return ResponseEntity.ok(postService.getAllPosts(page, size));
     }
 
-    // SEARCH - tìm theo title
-    // VD: GET /api/posts/search?keyword=công nghệ
+    // SEARCH - tìm theo title, ai cũng xem được
     @GetMapping("/search")
     public ResponseEntity<?> searchPosts(
             @RequestParam String keyword
@@ -56,8 +54,7 @@ public class PostController {
         return ResponseEntity.ok(postService.searchPosts(keyword));
     }
 
-    // GET BY CATEGORY
-    // VD: GET /api/posts/by-category/Công nghệ
+    // GET BY CATEGORY - ai cũng xem được
     @GetMapping("/by-category/{category}")
     public ResponseEntity<?> getPostsByCategory(
             @PathVariable String category
@@ -65,7 +62,7 @@ public class PostController {
         return ResponseEntity.ok(postService.getPostsByCategory(category));
     }
 
-    // GET BY AUTHOR
+    // GET BY AUTHOR - công khai, ai cũng xem được
     // VD: GET /api/posts/by-author/1
     @GetMapping("/by-author/{userId}")
     public ResponseEntity<?> getPostsByAuthor(
@@ -74,8 +71,25 @@ public class PostController {
         return ResponseEntity.ok(postService.getPostsByAuthor(userId));
     }
 
-    // GET BY ID
-    // VD: GET /api/posts/1
+    // MY POSTS - tác giả xem bài của chính mình (cần đăng nhập)
+    // VD: GET /api/posts/my-posts
+    @GetMapping("/my-posts")
+    public ResponseEntity<?> getMyPosts(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        // Chỉ AUTHOR và ADMIN mới có bài viết
+        if (currentUser.getRole() == Role.USER) {
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message",
+                            "Bạn không có bài viết nào. Chỉ AUTHOR mới có thể đăng bài!"));
+        }
+        return ResponseEntity.ok(
+                postService.getPostsByAuthor(currentUser.getId())
+        );
+    }
+
+    // GET BY ID - ai cũng xem được
     @GetMapping("/{id}")
     public ResponseEntity<?> getPostById(
             @PathVariable Long id

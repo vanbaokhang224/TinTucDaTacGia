@@ -5,10 +5,9 @@ import lombok.RequiredArgsConstructor;
 
 import org.example.tintuctacgia.dto.LoginRequest;
 import org.example.tintuctacgia.dto.RegisterRequest;
-import org.example.tintuctacgia.dto.UserResponse;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.enums.Role;
-import org.example.tintuctacgia.repository.UserRepository;
+import org.example.tintuctacgia.exception.UnauthorizedException;
 import org.example.tintuctacgia.service.AuthService;
 import org.example.tintuctacgia.service.JwtService;
 import org.example.tintuctacgia.service.TokenBlacklistService;
@@ -16,7 +15,6 @@ import org.example.tintuctacgia.service.TokenBlacklistService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -29,8 +27,6 @@ public class AuthController {
 
     private final JwtService jwtService;
     private final AuthService authService;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService tokenBlacklistService;
 
     // REGISTER
@@ -41,46 +37,31 @@ public class AuthController {
         return ResponseEntity.ok(authService.register(request));
     }
 
-    // LOGIN
+    // FIX: Login dùng AuthService thay vì trực tiếp UserRepository
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @RequestBody LoginRequest request
     ) {
-        User user = userRepository
-                .findByEmail(request.getEmail())
-                .orElse(null);
+        try {
+            User user = authService.login(request);
+            String token = jwtService.generateToken(user.getEmail());
 
-        if (user == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Đăng nhập thành công");
+            response.put("token", token);
+            response.put("name", user.getName());
+            response.put("email", user.getEmail());
+            response.put("role", user.getRole());
+
+            return ResponseEntity.ok(response);
+        } catch (UnauthorizedException e) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Email không tồn tại"));
+                    .body(Map.of("message", e.getMessage()));
         }
-
-        if (!user.getName().equalsIgnoreCase(request.getName())) {
-            return ResponseEntity
-                    .status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Tên không khớp với tài khoản này"));
-        }
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            return ResponseEntity
-                    .status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "Sai mật khẩu"));
-        }
-
-        String token = jwtService.generateToken(user.getEmail());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Đăng nhập thành công");
-        response.put("token", token);
-        response.put("name", user.getName());
-        response.put("email", user.getEmail());
-        response.put("role", user.getRole());
-
-        return ResponseEntity.ok(response);
     }
 
-    // LOGOUT - blacklist token hiện tại
+    // LOGOUT
     @PostMapping("/logout")
     public ResponseEntity<?> logout(
             @RequestHeader("Authorization") String authHeader
@@ -89,9 +70,7 @@ public class AuthController {
             String token = authHeader.substring(7);
             tokenBlacklistService.blacklist(token);
         }
-        return ResponseEntity.ok(
-                Map.of("message", "Đăng xuất thành công")
-        );
+        return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công"));
     }
 
     // REFRESH TOKEN

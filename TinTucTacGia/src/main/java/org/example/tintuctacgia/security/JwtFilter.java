@@ -40,25 +40,19 @@ public class JwtFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         String method = request.getMethod();
 
-        System.out.println("🔍 Request: " + method + " " + path);
-
         // Chỉ skip đúng 2 route không cần token
         boolean isLoginOrRegister =
                 (path.equals("/api/auth/login") && method.equals("POST")) ||
                         (path.equals("/api/auth/register") && method.equals("POST"));
 
         if (isLoginOrRegister) {
-            System.out.println("⏭️ Skipping filter for: " + path);
             filterChain.doFilter(request, response);
             return;
         }
 
         String authHeader = request.getHeader("Authorization");
 
-        System.out.println("📋 Authorization header: " + authHeader);
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("❌ No token found, passing to security config");
             filterChain.doFilter(request, response);
             return;
         }
@@ -68,7 +62,6 @@ public class JwtFilter extends OncePerRequestFilter {
 
             // Kiểm tra token có bị blacklist không
             if (tokenBlacklistService.isBlacklisted(token)) {
-                System.out.println("🚫 Token is blacklisted!");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write(
@@ -78,15 +71,12 @@ public class JwtFilter extends OncePerRequestFilter {
             }
 
             String email = jwtService.extractEmail(token);
-            System.out.println("📧 Email from token: " + email);
 
             User user = userRepository
                     .findByEmail(email)
                     .orElse(null);
 
             if (user != null) {
-                System.out.println("✅ User found: " + user.getEmail() + " | Role: " + user.getRole());
-
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
                                 user,
@@ -98,14 +88,9 @@ public class JwtFilter extends OncePerRequestFilter {
                 SecurityContextHolder
                         .getContext()
                         .setAuthentication(authToken);
-
-                System.out.println("✅ Authentication set successfully for: " + user.getEmail());
-            } else {
-                System.out.println("❌ User not found for email: " + email);
             }
 
         } catch (Exception e) {
-            System.out.println("💥 Token error: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write(

@@ -70,14 +70,18 @@ public class SecurityConfig {
                         // ===== SWAGGER =====
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
-                        // ===== POST ROUTES - GET không cần token =====
+                        // ===== POST ROUTES =====
+                        // my-posts cần đăng nhập
+                        .requestMatchers(HttpMethod.GET, "/api/posts/my-posts").authenticated()
+
+                        // Các GET khác không cần token - công khai
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/by-category/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/by-author/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
 
-                        // ===== POST ROUTES - cần token =====
+                        // Cần token
                         .requestMatchers(HttpMethod.POST, "/api/posts/**").hasAnyRole("ADMIN", "AUTHOR")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasAnyRole("ADMIN", "AUTHOR")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("ADMIN")
