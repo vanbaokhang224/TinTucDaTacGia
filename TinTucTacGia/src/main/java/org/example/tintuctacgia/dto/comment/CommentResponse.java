@@ -1,4 +1,4 @@
-package org.example.tintuctacgia.dto;
+package org.example.tintuctacgia.dto.comment;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

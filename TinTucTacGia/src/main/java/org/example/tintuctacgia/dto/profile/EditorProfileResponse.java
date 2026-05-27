@@ -1,10 +1,6 @@
-package org.example.tintuctacgia.dto;
+package org.example.tintuctacgia.dto.profile;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import org.example.tintuctacgia.enums.Role;
 
 import java.time.LocalDate;
@@ -13,13 +9,13 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserResponse {
-
+public class EditorProfileResponse {
     private Long id;
     private String name;
     private String email;
     private LocalDate dateOfBirth;
     private Role role;
-
-    // Không trả password ra ngoài
+    private String bio;
+    private String department;
+    private int totalApproved;
 }

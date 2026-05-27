@@ -1,6 +1,6 @@
 package org.example.tintuctacgia.mapper;
 
-import org.example.tintuctacgia.dto.CommentResponse;
+import org.example.tintuctacgia.dto.comment.CommentResponse;
 import org.example.tintuctacgia.entity.Comment;
 
 public class CommentMapper {

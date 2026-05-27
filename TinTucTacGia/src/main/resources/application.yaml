@@ -17,12 +17,11 @@ spring:
       hibernate:
         format_sql: true
 
+        dialect: org.hibernate.dialect.MySQLDialect
+
 server:
   port: 8080
 
-#  Thêm JWT config (dùng cho JwtService)
 jwt:
-  # Secret key phải >= 32 ký tự
   secret: day-la-secret-key-cua-ban-doi-thanh-gia-tri-that
-  # Thời gian hết hạn token: 1 giờ = 3600000 ms
   expiration: 3600000

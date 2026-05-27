@@ -3,7 +3,7 @@ package org.example.tintuctacgia.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.example.tintuctacgia.dto.CommentRequest;
+import org.example.tintuctacgia.dto.comment.CommentRequest;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.service.CommentService;
 

@@ -1,4 +1,4 @@
-package org.example.tintuctacgia.dto;
+package org.example.tintuctacgia.dto.comment;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

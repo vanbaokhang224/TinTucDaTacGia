@@ -3,8 +3,8 @@ package org.example.tintuctacgia.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.example.tintuctacgia.dto.CommentRequest;
-import org.example.tintuctacgia.dto.CommentResponse;
+import org.example.tintuctacgia.dto.comment.CommentRequest;
+import org.example.tintuctacgia.dto.comment.CommentResponse;
 import org.example.tintuctacgia.entity.Comment;
 import org.example.tintuctacgia.entity.Post;
 import org.example.tintuctacgia.entity.User;
@@ -30,13 +30,9 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
 
-    // CREATE COMMENT
+    // CREATE COMMENT - tất cả role đều được comment
     @Transactional
-    public CommentResponse createComment(
-            Long postId,
-            CommentRequest request,
-            User currentUser
-    ) {
+    public CommentResponse createComment(Long postId, CommentRequest request, User currentUser) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException(postId));
 
@@ -49,7 +45,7 @@ public class CommentService {
         return CommentMapper.toResponse(commentRepository.save(comment));
     }
 
-    // GET ALL COMMENTS (dành cho admin)
+    // GET ALL - dành cho ADMIN
     public List<CommentResponse> getComments() {
         return commentRepository.findAll()
                 .stream()
@@ -57,7 +53,7 @@ public class CommentService {
                 .collect(Collectors.toList());
     }
 
-    // GET COMMENTS THEO BÀI VIẾT
+    // GET BY POST - ai cũng xem được
     public List<CommentResponse> getCommentsByPost(Long postId) {
         return commentRepository.findByPostId(postId)
                 .stream()
@@ -65,43 +61,36 @@ public class CommentService {
                 .collect(Collectors.toList());
     }
 
-    // UPDATE COMMENT - chỉ chủ comment mới được sửa
+    // UPDATE - chỉ chủ comment
     @Transactional
-    public CommentResponse updateComment(
-            Long id,
-            CommentRequest request,
-            User currentUser
-    ) {
+    public CommentResponse updateComment(Long id, CommentRequest request, User currentUser) {
         Comment comment = commentRepository.findById(id)
                 .orElseThrow(() -> new CommentNotFoundException(id));
 
-        // FIX: Dùng UnauthorizedException thay RuntimeException
         if (!comment.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedException("Bạn không có quyền chỉnh sửa comment này");
         }
 
         comment.setContent(request.getContent());
-
         log.info("User {} updating comment {}", currentUser.getEmail(), id);
         return CommentMapper.toResponse(commentRepository.save(comment));
     }
 
-    // DELETE COMMENT
-    // ADMIN xóa tất cả, USER xóa của mình, AUTHOR không được xóa
+    // DELETE
+    // FIX: Cập nhật logic theo role mới
+    // ADMIN → xóa tất cả
+    // EDITOR → xóa tất cả (để kiểm duyệt nội dung)
+    // READER/AUTHOR → chỉ xóa comment của mình
     @Transactional
     public void deleteComment(Long id, User currentUser) {
         Comment comment = commentRepository.findById(id)
                 .orElseThrow(() -> new CommentNotFoundException(id));
 
-        // Dùng UnauthorizedException thay RuntimeException
-        if (currentUser.getRole() == Role.AUTHOR) {
-            throw new UnauthorizedException("AUTHOR không có quyền xóa comment");
-        }
-
         boolean isAdmin = currentUser.getRole() == Role.ADMIN;
+        boolean isEditor = currentUser.getRole() == Role.EDITOR;
         boolean isOwner = comment.getUser().getId().equals(currentUser.getId());
 
-        if (!isAdmin && !isOwner) {
+        if (!isAdmin && !isEditor && !isOwner) {
             throw new UnauthorizedException("Bạn không có quyền xóa comment này");
         }
 

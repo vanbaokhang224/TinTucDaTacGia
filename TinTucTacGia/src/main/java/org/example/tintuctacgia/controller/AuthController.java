@@ -3,8 +3,8 @@ package org.example.tintuctacgia.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.example.tintuctacgia.dto.LoginRequest;
-import org.example.tintuctacgia.dto.RegisterRequest;
+import org.example.tintuctacgia.dto.auth.LoginRequest;
+import org.example.tintuctacgia.dto.auth.RegisterRequest;
 import org.example.tintuctacgia.entity.User;
 import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.exception.UnauthorizedException;
@@ -29,7 +29,7 @@ public class AuthController {
     private final AuthService authService;
     private final TokenBlacklistService tokenBlacklistService;
 
-    // REGISTER
+    // REGISTER - mặc định READER, không cho chọn role
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @Valid @RequestBody RegisterRequest request
@@ -37,10 +37,10 @@ public class AuthController {
         return ResponseEntity.ok(authService.register(request));
     }
 
-    // FIX: Login dùng AuthService thay vì trực tiếp UserRepository
+    // LOGIN - chỉ email + password
     @PostMapping("/login")
     public ResponseEntity<?> login(
-            @RequestBody LoginRequest request
+            @Valid @RequestBody LoginRequest request
     ) {
         try {
             User user = authService.login(request);
@@ -115,7 +115,7 @@ public class AuthController {
         return ResponseEntity.ok(authService.getUserById(id));
     }
 
-    // UPDATE USER - ADMIN hoặc chính user đó
+    // UPDATE USER INFO - ADMIN hoặc chính user đó
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateUser(
             @PathVariable Long id,
@@ -131,6 +131,35 @@ public class AuthController {
                     .body(Map.of("message", "Bạn không có quyền cập nhật user này"));
         }
         return ResponseEntity.ok(authService.updateUser(id, updatedUser));
+    }
+
+    // CHANGE ROLE - chỉ ADMIN mới được đổi role cho user
+    // VD: PUT /api/auth/users/2/role
+    // Body: { "role": "AUTHOR" }
+    @PutMapping("/users/{id}/role")
+    public ResponseEntity<?> changeRole(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        if (currentUser.getRole() != Role.ADMIN) {
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Chỉ ADMIN mới có quyền đổi role"));
+        }
+
+        try {
+            Role newRole = Role.valueOf(body.get("role").toUpperCase());
+            return ResponseEntity.ok(authService.changeRole(id, newRole));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Role không hợp lệ. Chỉ chấp nhận: READER, AUTHOR, EDITOR, ADMIN"));
+        } catch (UnauthorizedException e) {
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 
     // DELETE USER - chỉ ADMIN

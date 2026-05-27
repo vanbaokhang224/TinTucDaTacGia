@@ -1,8 +1,10 @@
-package org.example.tintuctacgia.dto;
+package org.example.tintuctacgia.dto.post;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class PostRequest {
@@ -15,6 +17,9 @@ public class PostRequest {
     @Size(min = 10, message = "Nội dung phải ít nhất 10 ký tự")
     private String content;
 
-    @NotBlank(message = "Danh mục không được để trống")
-    private String category;
+    // FIX: Truyền categoryId thay vì String category
+    private Long categoryId;
+
+    // Danh sách tag ids
+    private List<Long> tagIds;
 }

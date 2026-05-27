@@ -2,23 +2,24 @@ package org.example.tintuctacgia.service;
 
 import lombok.RequiredArgsConstructor;
 
-import org.example.tintuctacgia.dto.PostRequest;
-import org.example.tintuctacgia.dto.PostResponse;
-import org.example.tintuctacgia.entity.Post;
-import org.example.tintuctacgia.entity.User;
+import org.example.tintuctacgia.dto.post.PostRequest;
+import org.example.tintuctacgia.dto.post.PostResponse;
+import org.example.tintuctacgia.entity.*;
+import org.example.tintuctacgia.enums.PostStatus;
 import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.exception.PostNotFoundException;
 import org.example.tintuctacgia.exception.UnauthorizedException;
 import org.example.tintuctacgia.mapper.PostMapper;
+import org.example.tintuctacgia.repository.CategoryRepository;
 import org.example.tintuctacgia.repository.PostRepository;
+import org.example.tintuctacgia.repository.TagRepository;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +28,8 @@ import java.util.stream.Collectors;
 public class PostService {
 
     private final PostRepository postRepository;
+    private final CategoryRepository categoryRepository;
+    private final TagRepository tagRepository;
 
     private User getCurrentUser() {
         return (User) SecurityContextHolder
@@ -35,75 +38,177 @@ public class PostService {
                 .getPrincipal();
     }
 
-    // CREATE POST
+    // Tạo slug từ title
+    private String generateSlug(String title) {
+        String slug = Normalizer.normalize(title, Normalizer.Form.NFD)
+                .replaceAll("[^\\p{ASCII}]", "")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-|-$", "");
+        // Thêm timestamp để tránh trùng
+        return slug + "-" + System.currentTimeMillis();
+    }
+
+    // CREATE POST - mặc định DRAFT
     public PostResponse createPost(PostRequest request) {
         User currentUser = getCurrentUser();
+
         Post post = new Post();
         post.setTitle(request.getTitle());
+        post.setSlug(generateSlug(request.getTitle()));
         post.setContent(request.getContent());
-        post.setCategory(request.getCategory());
+        post.setStatus(PostStatus.DRAFT);
         post.setUser(currentUser);
+
+        if (request.getCategoryId() != null) {
+            Category category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục"));
+            post.setCategory(category);
+        }
+
+        if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
+            List<Tag> tags = tagRepository.findByIdIn(request.getTagIds());
+            post.setTags(tags);
+        }
+
         return PostMapper.toResponse(postRepository.save(post));
     }
 
-    // GET ALL POSTS (phân trang, mới nhất trước)
+    // GET ALL PUBLISHED - công khai
     public Page<PostResponse> getAllPosts(int page, int size) {
-        Pageable pageable = PageRequest.of(
-                page, size,
-                Sort.by("createdAt").descending()
-        );
-        return postRepository.findAll(pageable)
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByStatus(PostStatus.PUBLISHED, pageable)
                 .map(PostMapper::toResponse);
     }
 
-    // GET POST BY ID
+    // GET POST BY ID - chỉ trả PUBLISHED cho public
     public PostResponse getPostById(Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
         return PostMapper.toResponse(post);
     }
 
-    // SEARCH POSTS BY TITLE
+    // GET POST BY SLUG
+    public PostResponse getPostBySlug(String slug) {
+        Post post = postRepository.findBySlug(slug)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài viết"));
+        return PostMapper.toResponse(post);
+    }
+
+    // SEARCH - chỉ tìm bài PUBLISHED
     public List<PostResponse> searchPosts(String keyword) {
         return postRepository
-                .findByTitleContainingIgnoreCase(keyword)
-                .stream()
-                .map(PostMapper::toResponse)
-                .collect(Collectors.toList());
+                .findByTitleContainingIgnoreCaseAndStatus(keyword, PostStatus.PUBLISHED)
+                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
     }
 
-    // GET POSTS BY CATEGORY
-    public List<PostResponse> getPostsByCategory(String category) {
-        return postRepository.findByCategory(category)
-                .stream()
-                .map(PostMapper::toResponse)
-                .collect(Collectors.toList());
+    // GET BY CATEGORY - chỉ bài PUBLISHED
+    public List<PostResponse> getPostsByCategory(Long categoryId) {
+        return postRepository.findByCategoryIdAndStatus(categoryId, PostStatus.PUBLISHED)
+                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
     }
 
-    // GET POSTS BY AUTHOR
+    // GET BY AUTHOR
     public List<PostResponse> getPostsByAuthor(Long userId) {
         return postRepository.findByUserId(userId)
-                .stream()
-                .map(PostMapper::toResponse)
-                .collect(Collectors.toList());
+                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
     }
 
-    // UPDATE POST
-    public PostResponse updatePost(Long id, PostRequest request) {
+    // MY POSTS - tác giả xem bài của mình (tất cả status)
+    public List<PostResponse> getMyPosts() {
+        User currentUser = getCurrentUser();
+        return postRepository.findByUserId(currentUser.getId())
+                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
+    }
+
+    // GET POSTS PENDING REVIEW - EDITOR/ADMIN xem bài chờ duyệt
+    public List<PostResponse> getPostsPendingReview() {
+        return postRepository.findByStatus(PostStatus.REVIEW)
+                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
+    }
+
+    // SUBMIT FOR REVIEW - AUTHOR gửi bài chờ duyệt
+    public PostResponse submitForReview(Long id) {
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new PostNotFoundException(id));
+        User currentUser = getCurrentUser();
+
+        if (!post.getUser().getId().equals(currentUser.getId())) {
+            throw new UnauthorizedException("Bạn không có quyền gửi bài này");
+        }
+        if (post.getStatus() != PostStatus.DRAFT && post.getStatus() != PostStatus.REJECTED) {
+            throw new RuntimeException("Chỉ có thể gửi duyệt bài ở trạng thái DRAFT hoặc REJECTED");
+        }
+
+        post.setStatus(PostStatus.REVIEW);
+        return PostMapper.toResponse(postRepository.save(post));
+    }
+
+    // APPROVE - EDITOR/ADMIN duyệt bài
+    public PostResponse approvePost(Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
 
+        if (post.getStatus() != PostStatus.REVIEW) {
+            throw new RuntimeException("Chỉ có thể duyệt bài ở trạng thái REVIEW");
+        }
+
+        User currentUser = getCurrentUser();
+        post.setStatus(PostStatus.PUBLISHED);
+        post.setReviewedBy(currentUser);
+        post.setPublishedAt(LocalDateTime.now());
+        return PostMapper.toResponse(postRepository.save(post));
+    }
+
+    // REJECT - EDITOR/ADMIN từ chối bài
+    public PostResponse rejectPost(Long id, String reason) {
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new PostNotFoundException(id));
+
+        if (post.getStatus() != PostStatus.REVIEW) {
+            throw new RuntimeException("Chỉ có thể từ chối bài ở trạng thái REVIEW");
+        }
+
+        User currentUser = getCurrentUser();
+        post.setStatus(PostStatus.REJECTED);
+        post.setRejectedReason(reason);
+        post.setReviewedBy(currentUser);
+        return PostMapper.toResponse(postRepository.save(post));
+    }
+
+    // UPDATE POST - AUTHOR sửa bài của mình (chỉ DRAFT/REJECTED)
+    public PostResponse updatePost(Long id, PostRequest request) {
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new PostNotFoundException(id));
         User currentUser = getCurrentUser();
 
-        // FIX: Dùng UnauthorizedException thay RuntimeException
         if (currentUser.getRole() != Role.ADMIN
+                && currentUser.getRole() != Role.EDITOR
                 && !post.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedException("Bạn không có quyền sửa bài này");
         }
 
+        // AUTHOR chỉ sửa được bài DRAFT hoặc REJECTED
+        if (currentUser.getRole() == Role.AUTHOR
+                && post.getStatus() != PostStatus.DRAFT
+                && post.getStatus() != PostStatus.REJECTED) {
+            throw new RuntimeException("Chỉ có thể sửa bài ở trạng thái DRAFT hoặc REJECTED");
+        }
+
         post.setTitle(request.getTitle());
+        post.setSlug(generateSlug(request.getTitle()));
         post.setContent(request.getContent());
-        post.setCategory(request.getCategory());
+
+        if (request.getCategoryId() != null) {
+            Category category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục"));
+            post.setCategory(category);
+        }
+
+        if (request.getTagIds() != null) {
+            List<Tag> tags = tagRepository.findByIdIn(request.getTagIds());
+            post.setTags(tags);
+        }
 
         return PostMapper.toResponse(postRepository.save(post));
     }
@@ -112,15 +217,13 @@ public class PostService {
     public void deletePost(Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
-
         User currentUser = getCurrentUser();
 
-        // FIX: Dùng UnauthorizedException thay RuntimeException
         if (currentUser.getRole() != Role.ADMIN
+                && currentUser.getRole() != Role.EDITOR
                 && !post.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedException("Bạn không có quyền xóa bài này");
         }
-
         postRepository.delete(post);
     }
 }

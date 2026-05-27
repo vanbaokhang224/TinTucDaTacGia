@@ -1,22 +1,17 @@
 package org.example.tintuctacgia.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -35,11 +30,9 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(401);
@@ -56,10 +49,9 @@ public class SecurityConfig {
                             new ObjectMapper().writeValue(response.getOutputStream(), body);
                         })
                 )
-
                 .authorizeHttpRequests(auth -> auth
 
-                        // ===== AUTH ROUTES =====
+                        // ===== AUTH =====
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/**").authenticated()
@@ -70,32 +62,54 @@ public class SecurityConfig {
                         // ===== SWAGGER =====
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
-                        // ===== POST ROUTES =====
-                        // my-posts cần đăng nhập
-                        .requestMatchers(HttpMethod.GET, "/api/posts/my-posts").authenticated()
+                        // ===== CATEGORY =====
+                        .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/categories/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/categories/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/categories/**").authenticated()
 
-                        // Các GET khác không cần token - công khai
+                        // ===== TAG =====
+                        .requestMatchers(HttpMethod.GET, "/api/tags/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/tags/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/tags/**").authenticated()
+
+                        // ===== POST =====
+                        .requestMatchers(HttpMethod.GET, "/api/posts/my-posts").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/pending-review").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/slug/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/by-category/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/by-author/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").authenticated()
 
-                        // Cần token
-                        .requestMatchers(HttpMethod.POST, "/api/posts/**").hasAnyRole("ADMIN", "AUTHOR")
-                        .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasAnyRole("ADMIN", "AUTHOR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("ADMIN")
-
-                        // ===== COMMENT ROUTES =====
+                        // ===== COMMENT =====
                         .requestMatchers("/api/comments/**").authenticated()
+
+                        // ===== REACTION =====
+                        .requestMatchers("/api/reactions/**").authenticated()
+
+                        // ===== BOOKMARK =====
+                        .requestMatchers("/api/bookmarks/**").authenticated()
+
+                        // ===== PROFILE =====
+                        // /me cần đăng nhập
+                        .requestMatchers(HttpMethod.GET, "/api/profiles/me").authenticated()
+                        // GET profile công khai
+                        .requestMatchers(HttpMethod.GET, "/api/profiles/**").permitAll()
+                        // PUT cần đăng nhập
+                        .requestMatchers(HttpMethod.PUT, "/api/profiles/**").authenticated()
+
+                        // ===== STATISTICS =====
+                        .requestMatchers("/api/statistics/**").authenticated()
 
                         .anyRequest().authenticated()
                 )
-
-                .addFilterBefore(
-                        jwtFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -2,12 +2,11 @@ package org.example.tintuctacgia.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.example.tintuctacgia.enums.PostStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "posts")
@@ -21,31 +20,64 @@ public class Post {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String title;
+
+    // Slug thân thiện SEO - VD: "bai-viet-dau-tien"
+    @Column(unique = true)
+    private String slug;
 
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    private String category;
+    // FIX: Thay String category bằng quan hệ với Category entity
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id")
+    private Category category;
 
+    // Tags - nhiều-nhiều
+    @ManyToMany
+    @JoinTable(
+            name = "post_tags",
+            joinColumns = @JoinColumn(name = "post_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<Tag> tags;
 
+    // Tác giả
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
     @JsonBackReference
     private User user;
 
-    private LocalDateTime createdAt;
+    // Workflow status
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PostStatus status = PostStatus.DRAFT;
 
+    // Lý do từ chối (EDITOR/ADMIN điền khi REJECTED)
+    private String rejectedReason;
+
+    // Người duyệt bài
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reviewed_by")
+    private User reviewedBy;
+
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime publishedAt;
 
     @PrePersist
-    public void createdAt() {
+    public void prePersist() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        if (this.status == null) {
+            this.status = PostStatus.DRAFT;
+        }
     }
 
     @PreUpdate
-    public void updatedAt() {
+    public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
 }

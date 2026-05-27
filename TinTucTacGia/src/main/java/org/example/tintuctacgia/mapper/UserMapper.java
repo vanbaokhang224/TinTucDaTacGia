@@ -1,6 +1,6 @@
 package org.example.tintuctacgia.mapper;
 
-import org.example.tintuctacgia.dto.UserResponse;
+import org.example.tintuctacgia.dto.auth.UserResponse;
 import org.example.tintuctacgia.entity.User;
 
 public class UserMapper {
