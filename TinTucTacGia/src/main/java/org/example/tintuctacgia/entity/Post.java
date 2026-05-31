@@ -23,20 +23,18 @@ public class Post {
     @Column(nullable = false)
     private String title;
 
-    // Slug thân thiện SEO - VD: "bai-viet-dau-tien"
     @Column(unique = true)
     private String slug;
 
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    // FIX: Thay String category bằng quan hệ với Category entity
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id")
     private Category category;
 
-    // Tags - nhiều-nhiều
-    @ManyToMany
+    // FIX: Thêm fetch = FetchType.EAGER để tránh lazy loading lỗi
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "post_tags",
             joinColumns = @JoinColumn(name = "post_id"),
@@ -44,21 +42,17 @@ public class Post {
     )
     private List<Tag> tags;
 
-    // Tác giả
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
     @JsonBackReference
     private User user;
 
-    // Workflow status
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PostStatus status = PostStatus.DRAFT;
 
-    // Lý do từ chối (EDITOR/ADMIN điền khi REJECTED)
     private String rejectedReason;
 
-    // Người duyệt bài
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;
