@@ -17,6 +17,8 @@ public class PostRequest {
     @Size(min = 10, message = "Nội dung phải ít nhất 10 ký tự")
     private String content;
 
+    private String thumbnail;
+
     // FIX: Truyền categoryId thay vì String category
     private Long categoryId;
 

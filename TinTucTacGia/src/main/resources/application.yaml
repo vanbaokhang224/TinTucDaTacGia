@@ -25,3 +25,9 @@ server:
 jwt:
   secret: day-la-secret-key-cua-ban-doi-thanh-gia-tri-that
   expiration: 3600000
+
+# THAY THẾ BẰNG THÔNG TIN CLOUDINARY CỦA BẠN:
+cloudinary:
+  cloud-name: "dtynwh5nx"
+  api-key: "726797976146128"
+  api-secret: "4coSwo8hh5hT-yXMU7OSCQWvSeE"

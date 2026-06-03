@@ -107,6 +107,9 @@ public class SecurityConfig {
                         // ===== STATISTICS =====
                         .requestMatchers("/api/statistics/**").authenticated()
 
+                        // ===== FILES (Cloudinary) =====
+                        .requestMatchers(HttpMethod.POST, "/api/files/**").hasAnyRole("AUTHOR", "ADMIN", "EDITOR")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

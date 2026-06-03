@@ -14,6 +14,8 @@ import org.example.tintuctacgia.repository.CategoryRepository;
 import org.example.tintuctacgia.repository.PostRepository;
 import org.example.tintuctacgia.repository.TagRepository;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -50,6 +52,7 @@ public class PostService {
     }
 
     // CREATE POST - mặc định DRAFT
+    @CacheEvict(value = {"posts", "postsAll"}, allEntries = true)
     public PostResponse createPost(PostRequest request) {
         User currentUser = getCurrentUser();
 
@@ -57,6 +60,7 @@ public class PostService {
         post.setTitle(request.getTitle());
         post.setSlug(generateSlug(request.getTitle()));
         post.setContent(request.getContent());
+        post.setThumbnail(request.getThumbnail());
         post.setStatus(PostStatus.DRAFT);
         post.setUser(currentUser);
 
@@ -75,6 +79,7 @@ public class PostService {
     }
 
     // GET ALL PUBLISHED - công khai
+    @Cacheable(value = "postsAll", key = "#page + '-' + #size")
     public Page<PostResponse> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return postRepository.findByStatus(PostStatus.PUBLISHED, pageable)
@@ -82,6 +87,7 @@ public class PostService {
     }
 
     // GET POST BY ID - chỉ trả PUBLISHED cho public
+    @Cacheable(value = "posts", key = "#id")
     public PostResponse getPostById(Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
@@ -89,6 +95,7 @@ public class PostService {
     }
 
     // GET POST BY SLUG
+    @Cacheable(value = "posts", key = "#slug")
     public PostResponse getPostBySlug(String slug) {
         Post post = postRepository.findBySlug(slug)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bài viết"));
@@ -145,6 +152,7 @@ public class PostService {
     }
 
     // APPROVE - EDITOR/ADMIN duyệt bài
+    @CacheEvict(value = {"posts", "postsAll"}, allEntries = true)
     public PostResponse approvePost(Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
@@ -161,6 +169,7 @@ public class PostService {
     }
 
     // REJECT - EDITOR/ADMIN từ chối bài
+    @CacheEvict(value = {"posts", "postsAll"}, allEntries = true)
     public PostResponse rejectPost(Long id, String reason) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
@@ -177,6 +186,7 @@ public class PostService {
     }
 
     // UPDATE POST - AUTHOR sửa bài của mình (chỉ DRAFT/REJECTED)
+    @CacheEvict(value = {"posts", "postsAll"}, allEntries = true)
     public PostResponse updatePost(Long id, PostRequest request) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
@@ -188,16 +198,24 @@ public class PostService {
             throw new UnauthorizedException("Bạn không có quyền sửa bài này");
         }
 
-        // AUTHOR chỉ sửa được bài DRAFT hoặc REJECTED
-        if (currentUser.getRole() == Role.AUTHOR
-                && post.getStatus() != PostStatus.DRAFT
-                && post.getStatus() != PostStatus.REJECTED) {
-            throw new RuntimeException("Chỉ có thể sửa bài ở trạng thái DRAFT hoặc REJECTED");
+        // Logic Sửa bài của AUTHOR
+        if (currentUser.getRole() == Role.AUTHOR) {
+            if (post.getStatus() == PostStatus.REVIEW) {
+                throw new RuntimeException("Bài viết đang chờ duyệt, bạn không thể sửa lúc này!");
+            }
+            // Tác giả sửa bài đã đăng -> Tự động chuyển về trạng thái Chờ Duyệt (REVIEW)
+            if (post.getStatus() == PostStatus.PUBLISHED) {
+                post.setStatus(PostStatus.REVIEW);
+            }
         }
 
         post.setTitle(request.getTitle());
         post.setSlug(generateSlug(request.getTitle()));
         post.setContent(request.getContent());
+        
+        if (request.getThumbnail() != null) {
+            post.setThumbnail(request.getThumbnail());
+        }
 
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
@@ -214,6 +232,7 @@ public class PostService {
     }
 
     // DELETE POST
+    @CacheEvict(value = {"posts", "postsAll"}, allEntries = true)
     public void deletePost(Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));

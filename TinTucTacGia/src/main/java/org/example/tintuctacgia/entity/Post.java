@@ -29,6 +29,8 @@ public class Post {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    private String thumbnail;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id")
     private Category category;

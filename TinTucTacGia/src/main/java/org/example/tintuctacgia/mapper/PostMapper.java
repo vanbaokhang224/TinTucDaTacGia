@@ -13,6 +13,7 @@ public class PostMapper {
                 .title(post.getTitle())
                 .slug(post.getSlug())
                 .content(post.getContent())
+                .thumbnail(post.getThumbnail())
                 .status(post.getStatus())
                 .rejectedReason(post.getRejectedReason())
                 .categoryId(post.getCategory() != null ? post.getCategory().getId() : null)
