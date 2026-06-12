@@ -103,35 +103,40 @@ public class PostService {
     }
 
     // SEARCH - chỉ tìm bài PUBLISHED
-    public List<PostResponse> searchPosts(String keyword) {
+    public Page<PostResponse> searchPosts(String keyword, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return postRepository
-                .findByTitleContainingIgnoreCaseAndStatus(keyword, PostStatus.PUBLISHED)
-                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
+                .findByTitleContainingIgnoreCaseAndStatus(keyword, PostStatus.PUBLISHED, pageable)
+                .map(PostMapper::toResponse);
     }
 
     // GET BY CATEGORY - chỉ bài PUBLISHED
-    public List<PostResponse> getPostsByCategory(Long categoryId) {
-        return postRepository.findByCategoryIdAndStatus(categoryId, PostStatus.PUBLISHED)
-                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
+    public Page<PostResponse> getPostsByCategory(Long categoryId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByCategoryIdAndStatus(categoryId, PostStatus.PUBLISHED, pageable)
+                .map(PostMapper::toResponse);
     }
 
     // GET BY AUTHOR
-    public List<PostResponse> getPostsByAuthor(Long userId) {
-        return postRepository.findByUserId(userId)
-                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
+    public Page<PostResponse> getPostsByAuthor(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByUserId(userId, pageable)
+                .map(PostMapper::toResponse);
     }
 
     // MY POSTS - tác giả xem bài của mình (tất cả status)
-    public List<PostResponse> getMyPosts() {
+    public Page<PostResponse> getMyPosts(int page, int size) {
         User currentUser = getCurrentUser();
-        return postRepository.findByUserId(currentUser.getId())
-                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByUserId(currentUser.getId(), pageable)
+                .map(PostMapper::toResponse);
     }
 
     // GET POSTS PENDING REVIEW - EDITOR/ADMIN xem bài chờ duyệt
-    public List<PostResponse> getPostsPendingReview() {
-        return postRepository.findByStatus(PostStatus.REVIEW)
-                .stream().map(PostMapper::toResponse).collect(Collectors.toList());
+    public Page<PostResponse> getPostsPendingReview(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByStatus(PostStatus.REVIEW, pageable)
+                .map(PostMapper::toResponse);
     }
 
     // SUBMIT FOR REVIEW - AUTHOR gửi bài chờ duyệt

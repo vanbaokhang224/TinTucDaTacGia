@@ -11,6 +11,7 @@ import org.example.tintuctacgia.enums.Role;
 import org.example.tintuctacgia.exception.UserNotFoundException;
 import org.example.tintuctacgia.repository.*;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -61,7 +62,7 @@ public class StatisticsService {
                 .orElseThrow(() -> new UserNotFoundException(authorId));
 
         // Lấy tất cả bài của author
-        var posts = postRepository.findByUserId(authorId);
+        var posts = postRepository.findByUserId(authorId, Pageable.unpaged()).getContent();
         List<Long> postIds = posts.stream()
                 .map(p -> p.getId())
                 .collect(Collectors.toList());

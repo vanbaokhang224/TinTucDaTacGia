@@ -11,10 +11,10 @@ import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByStatus(PostStatus status, Pageable pageable);
-    List<Post> findByUserId(Long userId);
-    List<Post> findByUserIdAndStatus(Long userId, PostStatus status);
-    List<Post> findByCategoryIdAndStatus(Long categoryId, PostStatus status);
-    List<Post> findByTitleContainingIgnoreCaseAndStatus(String keyword, PostStatus status);
+    Page<Post> findByUserId(Long userId, Pageable pageable);
+    Page<Post> findByUserIdAndStatus(Long userId, PostStatus status, Pageable pageable);
+    Page<Post> findByCategoryIdAndStatus(Long categoryId, PostStatus status, Pageable pageable);
+    Page<Post> findByTitleContainingIgnoreCaseAndStatus(String keyword, PostStatus status, Pageable pageable);
     List<Post> findByStatus(PostStatus status);
     Optional<Post> findBySlug(String slug);
     Page<Post> findAll(Pageable pageable);

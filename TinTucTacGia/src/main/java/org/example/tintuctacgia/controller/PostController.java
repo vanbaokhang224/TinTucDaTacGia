@@ -68,40 +68,60 @@ public class PostController {
 
     // SEARCH - công khai, chỉ bài PUBLISHED
     @GetMapping("/search")
-    public ResponseEntity<?> searchPosts(@RequestParam String keyword) {
-        return ResponseEntity.ok(postService.searchPosts(keyword));
+    public ResponseEntity<?> searchPosts(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.searchPosts(keyword, page, size));
     }
 
     // GET BY CATEGORY - công khai
     @GetMapping("/by-category/{categoryId}")
-    public ResponseEntity<?> getPostsByCategory(@PathVariable Long categoryId) {
-        return ResponseEntity.ok(postService.getPostsByCategory(categoryId));
+    public ResponseEntity<?> getPostsByCategory(
+            @PathVariable Long categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.getPostsByCategory(categoryId, page, size));
     }
 
     // GET BY AUTHOR - công khai
     @GetMapping("/by-author/{userId}")
-    public ResponseEntity<?> getPostsByAuthor(@PathVariable Long userId) {
-        return ResponseEntity.ok(postService.getPostsByAuthor(userId));
+    public ResponseEntity<?> getPostsByAuthor(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.getPostsByAuthor(userId, page, size));
     }
 
     // MY POSTS - tác giả xem bài của mình (cần đăng nhập)
     @GetMapping("/my-posts")
-    public ResponseEntity<?> getMyPosts(@AuthenticationPrincipal User currentUser) {
+    public ResponseEntity<?> getMyPosts(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
         if (currentUser.getRole() == Role.READER) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "READER không có bài viết!"));
         }
-        return ResponseEntity.ok(postService.getMyPosts());
+        return ResponseEntity.ok(postService.getMyPosts(page, size));
     }
 
     // PENDING REVIEW - EDITOR/ADMIN xem bài chờ duyệt
     @GetMapping("/pending-review")
-    public ResponseEntity<?> getPendingReview(@AuthenticationPrincipal User currentUser) {
+    public ResponseEntity<?> getPendingReview(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
         if (currentUser.getRole() != Role.EDITOR && currentUser.getRole() != Role.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "Chỉ EDITOR hoặc ADMIN mới xem được bài chờ duyệt!"));
         }
-        return ResponseEntity.ok(postService.getPostsPendingReview());
+        return ResponseEntity.ok(postService.getPostsPendingReview(page, size));
     }
 
     // SUBMIT FOR REVIEW - AUTHOR gửi bài chờ duyệt
